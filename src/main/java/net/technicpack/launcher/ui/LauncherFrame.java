@@ -30,6 +30,7 @@ import net.technicpack.launcher.io.LauncherFileSystem;
 import net.technicpack.launcher.launch.Installer;
 import net.technicpack.launcher.settings.StartupParameters;
 import net.technicpack.launcher.settings.TechnicSettings;
+import net.technicpack.launcher.ui.components.ModpackDeleteDialog;
 import net.technicpack.launcher.ui.components.ModpackOptionsDialog;
 import net.technicpack.launcher.ui.components.OptionsDialog;
 import net.technicpack.launcher.ui.components.discover.DiscoverInfoPanel;
@@ -592,13 +593,8 @@ public class LauncherFrame extends DraggableFrame implements IRelocalizableResou
         .getDeleteButton()
         .addActionListener(
             e -> {
-              if (JOptionPane.showConfirmDialog(
-                      LauncherFrame.this,
-                      resources.getString("modpackoptions.delete.confirmtext"),
-                      resources.getString("modpackoptions.delete.confirmtitle"),
-                      JOptionPane.YES_NO_OPTION)
-                  == JOptionPane.YES_OPTION) {
-                modpackSelector.getSelectedPack().delete();
+              if (ModpackDeleteDialog.confirmDelete(
+                  LauncherFrame.this, modpackSelector.getSelectedPack(), resources)) {
                 modpackSelector.forceRefresh();
               }
             });

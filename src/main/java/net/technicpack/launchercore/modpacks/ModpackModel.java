@@ -379,6 +379,16 @@ public class ModpackModel {
     return new File(installedDir, "saves");
   }
 
+  /** Whether this pack's saves directory exists and contains at least one entry. */
+  public boolean hasWorldSaves() {
+    File savesDir = getSavesDir();
+
+    if (savesDir == null || !savesDir.isDirectory()) return false;
+
+    String[] entries = savesDir.list();
+    return entries != null && entries.length > 0;
+  }
+
   public void initDirectories() {
     getBinDir().mkdirs();
     getModsDir().mkdirs();
@@ -497,11 +507,27 @@ public class ModpackModel {
   }
 
   public void delete() {
-    if (getInstalledDirectory() != null && getInstalledDirectory().exists()) {
-      try {
-        FileUtils.deleteDirectory(getInstalledDirectory());
-      } catch (IOException e) {
-        Utils.getLogger().log(Level.SEVERE, e.getMessage(), e);
+    delete(false);
+  }
+
+  /**
+   * Deletes this pack from disk and unregisters it from the pack store.
+   *
+   * @param keepSaves when true, the saves directory is left in place so a future reinstall of the
+   *     same pack picks the worlds back up
+   */
+  public void delete(boolean keepSaves) {
+    File installedDir = getInstalledDirectory();
+
+    if (installedDir != null && installedDir.exists()) {
+      if (keepSaves && getSavesDir().exists()) {
+        deleteChildrenExceptSaves(installedDir);
+      } else {
+        try {
+          FileUtils.deleteDirectory(installedDir);
+        } catch (IOException e) {
+          Utils.getLogger().log(Level.SEVERE, e.getMessage(), e);
+        }
       }
     }
 
@@ -517,5 +543,22 @@ public class ModpackModel {
     packStore.remove(getName());
     installedPack = null;
     installedDirectory = null;
+  }
+
+  private static void deleteChildrenExceptSaves(File installedDir) {
+    File[] children = installedDir.listFiles();
+
+    if (children == null) return;
+
+    for (File child : children) {
+      // Case-insensitive: on Windows/macOS a differently-cased "Saves" is the saves directory
+      if (child.getName().equalsIgnoreCase("saves")) continue;
+
+      try {
+        FileUtils.forceDelete(child);
+      } catch (IOException e) {
+        Utils.getLogger().log(Level.SEVERE, e.getMessage(), e);
+      }
+    }
   }
 }

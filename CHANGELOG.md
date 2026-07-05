@@ -9,6 +9,9 @@ is added at the top.
 
 ## [Unreleased]
 
+### Added
+- Deleting a modpack now asks what you want to do with your world saves. If the pack has any, the confirmation offers **Delete everything**, **Keep world saves**, or **Cancel**: keeping them leaves the pack's `saves` folder on disk, and reinstalling the same pack later picks your worlds up again automatically. Packs without saves get the same yes/no confirmation as before. This applies to both delete buttons (the modpack page and the pack options dialog).
+
 ## [v4.0-1130] - 2026-07-05
 
 ### Changed
