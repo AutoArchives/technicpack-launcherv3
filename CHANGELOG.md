@@ -9,6 +9,9 @@ is added at the top.
 
 ## [Unreleased]
 
+### Changed
+- Routine dependency upkeep: bundled libraries (zstd-jni and the Sentry crash-reporting SDK) and the build tooling were refreshed to current upstream releases. Maintenance updates only; no behaviour changes for end users.
+
 ## [v4.0-1120] - 2026-06-15
 
 ### Added
