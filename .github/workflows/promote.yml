@@ -352,7 +352,7 @@ jobs:
         with:
           # Dotted semver so Sentry orders builds numerically; must match the string the
           # launcher sets at runtime in LauncherMain.resolveSentryRelease().
-          version: launcher@${{ env.LAUNCHER_MAJOR }}.${{ steps.artifact.outputs.build_number }}
+          release: launcher@${{ env.LAUNCHER_MAJOR }}.${{ steps.artifact.outputs.build_number }}
           set_commits: auto # falls back to the local git tree when no repo integration exists
           finalize: true
           ignore_missing: true # the first release has no prior baseline -- don't fail on it
