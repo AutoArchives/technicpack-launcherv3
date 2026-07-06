@@ -9,6 +9,8 @@ is added at the top.
 
 ## [Unreleased]
 
+## [v4.0-1133] - 2026-07-06
+
 ### Changed
 - The launcher no longer sends its **Client ID** to modpack Solder servers by default. This per-install identifier (the one shown under Launcher Options) used to be attached to every Solder request; it is now omitted unless you opt in for a specific modpack. If you are a beta tester, or otherwise have access to builds a pack's Solder only offers to recognized clients, open that pack's **Modpack Options** and tick **"Send launcher client ID to this pack's Solder server"** to receive those builds again. The setting is off for every pack until you turn it on (including packs you already have installed) and is remembered per modpack. Turning it on takes effect immediately: the launcher re-checks that pack's Solder with the identifier attached, so newly available builds appear without a restart. As a convenience, when you select a Solder-backed pack that shows no available builds, the launcher offers to enable the option for that pack so it can look for builds that require the identifier. The public modpack listing on the Modpacks tab no longer sends the identifier at all.
 
