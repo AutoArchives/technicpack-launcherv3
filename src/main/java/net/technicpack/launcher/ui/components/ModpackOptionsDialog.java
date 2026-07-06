@@ -21,6 +21,7 @@ package net.technicpack.launcher.ui.components;
 import java.awt.*;
 import java.io.File;
 import java.util.Locale;
+import java.util.function.Consumer;
 import javax.swing.*;
 import javax.swing.plaf.basic.BasicComboPopup;
 import javax.swing.plaf.metal.MetalComboBoxUI;
@@ -51,14 +52,21 @@ public class ModpackOptionsDialog extends LauncherDialog {
   private JRadioButton latest;
   private JRadioButton manual;
   private JComboBox manualBuildList;
+  private JCheckBox sendClientId;
   private JFileChooser chooser;
+  private final Consumer<ModpackModel> sendClientIdChangedListener;
 
   public ModpackOptionsDialog(
-      Frame owner, LauncherFileSystem fileSystem, ModpackModel modpack, ResourceLoader resources) {
+      Frame owner,
+      LauncherFileSystem fileSystem,
+      ModpackModel modpack,
+      ResourceLoader resources,
+      Consumer<ModpackModel> sendClientIdChangedListener) {
     super(owner);
 
     this.modpack = modpack;
     this.resources = resources;
+    this.sendClientIdChangedListener = sendClientIdChangedListener;
 
     chooser = new JFileChooser(fileSystem.getModpacksDirectory().toFile());
     chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
@@ -122,6 +130,17 @@ public class ModpackOptionsDialog extends LauncherDialog {
 
   protected void buildUpdated() {
     this.modpack.setBuild(((PackBuildItem) manualBuildList.getSelectedItem()).getBuildNumber());
+  }
+
+  protected void sendClientIdToggled() {
+    modpack.setSendClientId(sendClientId.isSelected());
+
+    // Disable until the re-fetch completes; refresh(model) rebuilds the dialog afterwards
+    sendClientId.setEnabled(false);
+
+    if (sendClientIdChangedListener != null) {
+      sendClientIdChangedListener.accept(modpack);
+    }
   }
 
   protected void deletePack() {
@@ -501,11 +520,43 @@ public class ModpackOptionsDialog extends LauncherDialog {
             0,
             0));
 
+    JPanel clientIdRow = new JPanel();
+    clientIdRow.setOpaque(false);
+    clientIdRow.setLayout(new BoxLayout(clientIdRow, BoxLayout.LINE_AXIS));
+
+    sendClientId = new JCheckBox(resources.getString("modpackoptions.clientid.text"), false);
+    sendClientId.setFont(resources.getFont(ResourceLoader.FONT_OPENSANS, 15));
+    sendClientId.setForeground(UIConstants.COLOR_WHITE_TEXT);
+    sendClientId.setOpaque(false);
+    sendClientId.setHorizontalTextPosition(SwingConstants.RIGHT);
+    sendClientId.setIcon(resources.getIcon("checkbox_open.png"));
+    sendClientId.setSelectedIcon(resources.getIcon("checkbox_closed.png"));
+    sendClientId.setFocusPainted(false);
+    sendClientId.addActionListener(e -> sendClientIdToggled());
+    clientIdRow.add(sendClientId);
+
+    clientIdRow.add(Box.createHorizontalGlue());
+
+    centerPanel.add(
+        clientIdRow,
+        new GridBagConstraints(
+            0,
+            7,
+            6,
+            1,
+            1,
+            0,
+            GridBagConstraints.WEST,
+            GridBagConstraints.HORIZONTAL,
+            new Insets(8, 0, 0, 0),
+            0,
+            0));
+
     centerPanel.add(
         Box.createGlue(),
         new GridBagConstraints(
             0,
-            7,
+            8,
             6,
             1,
             1,
@@ -553,7 +604,7 @@ public class ModpackOptionsDialog extends LauncherDialog {
         bottomButtons,
         new GridBagConstraints(
             0,
-            8,
+            9,
             6,
             1,
             1,
@@ -566,6 +617,11 @@ public class ModpackOptionsDialog extends LauncherDialog {
   }
 
   private void initValues() {
+    boolean hasSolder = modpack.getPackInfo() != null && modpack.getPackInfo().hasSolder();
+
+    sendClientId.setVisible(hasSolder);
+    sendClientId.setSelected(modpack.isSendClientId());
+
     File installDir = modpack.getInstalledDirectory();
     if (installDir == null) {
       installField.setText(resources.getString("modpackoptions.installfolder.none"));
