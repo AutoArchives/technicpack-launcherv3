@@ -781,7 +781,11 @@ public class LauncherMain {
         new ImageRepository<>(
             new TechnicAvatarMapper(fileSystem, resources), new WebAvatarImageStore());
 
-    HttpSolderApi httpSolder = new HttpSolderApi(slug -> null);
+    InstalledPackStore packStore =
+        InstalledPackStore.load(fileSystem.getRootDirectory().resolve("installedPacks"));
+
+    HttpSolderApi httpSolder =
+        new HttpSolderApi(new InstalledPackClientIdProvider(packStore, settings));
     ISolderApi solder = new CachedSolderApi(fileSystem, httpSolder, 60 * 60);
     HttpPlatformApi httpPlatform =
         new HttpPlatformApi("https://api.technicpack.net/", buildNumber.getBuildNumber());
@@ -790,8 +794,6 @@ public class LauncherMain {
     IPlatformSearchApi platformSearch =
         new HttpPlatformSearchApi("https://api.technicpack.net/", buildNumber.getBuildNumber());
 
-    InstalledPackStore packStore =
-        InstalledPackStore.load(fileSystem.getRootDirectory().resolve("installedPacks"));
     IAuthoritativePackSource packInfoRepository = new PlatformPackInfoRepository(platform, solder);
 
     ArrayList<IMigrator> migrators = new ArrayList<>(1);
