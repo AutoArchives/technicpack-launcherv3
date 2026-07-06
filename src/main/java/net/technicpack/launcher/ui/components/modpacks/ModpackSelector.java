@@ -78,6 +78,7 @@ public class ModpackSelector extends TintablePanel
   private final FindMoreWidget findMoreWidget;
   private final transient MemoryModpackContainer defaultPacks = new MemoryModpackContainer();
   private final Map<String, ModpackWidget> allModpacks = new HashMap<>();
+  private final transient Set<String> clientIdPromptShown = new HashSet<>();
   private final Pattern slugRegex;
   private final Pattern siteRegex;
   private transient ResourceLoader resources;
@@ -422,6 +423,8 @@ public class ModpackSelector extends TintablePanel
                       modpackInfoPanel.setModpackIfSame(refreshWidget.getModpack());
                     }
 
+                    maybePromptForClientId(refreshWidget);
+
                     if (refreshWidget.getModpack().hasRecommendedUpdate()) {
                       refreshWidget.setToolTipText(
                           resources.getString("launcher.packselector.updatetip"));
@@ -503,6 +506,56 @@ public class ModpackSelector extends TintablePanel
           }
         };
     thread.start();
+  }
+
+  /**
+   * Suggests enabling the per-pack client ID when a Solder pack reports zero builds — the symptom
+   * of private builds gated on a recognized client ID. Asked at most once per pack per session;
+   * runs on the EDT.
+   */
+  private void maybePromptForClientId(ModpackWidget widget) {
+    // Only prompt for the pack the user is currently looking at
+    if (widget != selectedWidget) {
+      return;
+    }
+
+    ModpackModel modpack = widget.getModpack();
+    PackInfo packInfo = modpack.getPackInfo();
+
+    if (packInfo == null || !packInfo.hasSolder() || modpack.isSendClientId()) {
+      return;
+    }
+
+    List<String> builds = packInfo.getBuilds();
+    if (builds != null && !builds.isEmpty()) {
+      return;
+    }
+
+    String slug = modpack.getName();
+    // add() returns false when already present — covers both "declined" and "already asked"
+    if (slug == null || !clientIdPromptShown.add(slug)) {
+      return;
+    }
+
+    int result =
+        JOptionPane.showConfirmDialog(
+            this,
+            resources.getString("modpackselector.clientid.prompttext"),
+            resources.getString("modpackselector.clientid.prompttitle"),
+            JOptionPane.YES_NO_OPTION,
+            JOptionPane.QUESTION_MESSAGE);
+
+    if (result == JOptionPane.YES_OPTION) {
+      modpack.setSendClientId(true);
+      // No modal is open here, so refreshing the info panel to show revealed builds is safe
+      onSendClientIdChanged(
+          modpack,
+          () -> {
+            if (modpackInfoPanel != null) {
+              modpackInfoPanel.setModpackIfSame(modpack);
+            }
+          });
+    }
   }
 
   protected void rebuildUI() {
