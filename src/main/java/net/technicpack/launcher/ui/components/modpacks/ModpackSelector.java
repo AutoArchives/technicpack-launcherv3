@@ -414,25 +414,7 @@ public class ModpackSelector extends TintablePanel
           @Override
           public void run() {
             try {
-              PlatformPackInfo updatedInfo =
-                  platformApi.getPlatformPackInfo(refreshWidget.getModpack().getName());
-              PackInfo infoToUse = updatedInfo;
-
-              if (updatedInfo != null && updatedInfo.hasSolder()) {
-                try {
-                  ISolderPackApi solderPack =
-                      solderApi.getSolderPack(
-                          updatedInfo.getSolder(),
-                          updatedInfo.getName(),
-                          solderApi.getMirrorUrl(updatedInfo.getSolder()));
-                  infoToUse = new CombinedPackInfo(solderPack.getPackInfo(), updatedInfo);
-                } catch (RestfulAPIException e) {
-                }
-              }
-
-              if (infoToUse != null) {
-                refreshWidget.getModpack().setPackInfo(infoToUse);
-              }
+              updatePackInfoFromNetwork(refreshWidget.getModpack(), false);
 
               SwingUtilities.invokeLater(
                   () -> {
@@ -460,6 +442,63 @@ public class ModpackSelector extends TintablePanel
 
             } catch (RestfulAPIException e) {
               e.printStackTrace();
+            }
+          }
+        };
+    thread.start();
+  }
+
+  /**
+   * Re-fetches platform and Solder info for the given modpack and applies it to the model. Runs
+   * network I/O; never call on the EDT.
+   */
+  private void updatePackInfoFromNetwork(ModpackModel modpack, boolean invalidateSolderCache)
+      throws RestfulAPIException {
+    PlatformPackInfo updatedInfo = platformApi.getPlatformPackInfo(modpack.getName());
+    PackInfo infoToUse = updatedInfo;
+
+    if (updatedInfo != null && updatedInfo.hasSolder()) {
+      try {
+        ISolderPackApi solderPack =
+            solderApi.getSolderPack(
+                updatedInfo.getSolder(),
+                updatedInfo.getName(),
+                solderApi.getMirrorUrl(updatedInfo.getSolder()));
+        if (invalidateSolderCache) {
+          solderPack.invalidateCache();
+        }
+        infoToUse = new CombinedPackInfo(solderPack.getPackInfo(), updatedInfo);
+      } catch (RestfulAPIException e) {
+      }
+    }
+
+    if (infoToUse != null) {
+      modpack.setPackInfo(infoToUse);
+    }
+  }
+
+  /**
+   * Called after a modpack's send-client-ID setting changed. Drops the pack's Solder caches,
+   * re-fetches its info with the new setting, then runs {@code onRefreshed} on the EDT.
+   *
+   * <p>Deliberately does not repaint the info panel itself: when this is triggered from the modal
+   * Modpack Options dialog, repainting a child of the tinted central panel would punch a bright
+   * hole in the dimming overlay (the overlay is only redrawn when the panel itself repaints). The
+   * caller decides via {@code onRefreshed} whether a view refresh is safe.
+   */
+  public void onSendClientIdChanged(ModpackModel modpack, Runnable onRefreshed) {
+    Thread thread =
+        new Thread("Client ID refresh " + modpack.getDisplayName()) {
+          @Override
+          public void run() {
+            try {
+              updatePackInfoFromNetwork(modpack, true);
+            } catch (RestfulAPIException e) {
+              e.printStackTrace();
+            }
+
+            if (onRefreshed != null) {
+              SwingUtilities.invokeLater(onRefreshed);
             }
           }
         };
