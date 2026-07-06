@@ -26,23 +26,24 @@ import java.util.Map;
 import net.technicpack.rest.RestObject;
 import net.technicpack.rest.RestfulAPIException;
 import net.technicpack.solder.ISolderApi;
+import net.technicpack.solder.ISolderClientIdProvider;
 import net.technicpack.solder.ISolderPackApi;
 import net.technicpack.solder.io.FullModpacks;
 import net.technicpack.solder.io.Solder;
 import net.technicpack.solder.io.SolderPackInfo;
 
 public class HttpSolderApi implements ISolderApi {
-  private String clientId;
+  private final ISolderClientIdProvider clientIdProvider;
   private final Map<String, String> mirrorUrls = new HashMap<>();
 
-  public HttpSolderApi(String clientId) {
-    this.clientId = clientId;
+  public HttpSolderApi(ISolderClientIdProvider clientIdProvider) {
+    this.clientIdProvider = clientIdProvider;
   }
 
   @Override
   public ISolderPackApi getSolderPack(String solderRoot, String modpackSlug, String mirrorUrl)
       throws RestfulAPIException {
-    return new HttpSolderPackApi(solderRoot, modpackSlug, clientId, mirrorUrl);
+    return new HttpSolderPackApi(solderRoot, modpackSlug, clientIdProvider, mirrorUrl);
   }
 
   @Override
@@ -67,7 +68,7 @@ public class HttpSolderApi implements ISolderApi {
   public Collection<SolderPackInfo> internalGetPublicSolderPacks(
       String solderRoot, ISolderApi packFactory) throws RestfulAPIException {
     LinkedList<SolderPackInfo> allPackApis = new LinkedList<>();
-    String allPacksUrl = solderRoot + "modpack?include=full&cid=" + clientId;
+    String allPacksUrl = buildPublicPacksUrl(solderRoot);
 
     FullModpacks technic = RestObject.getRestObject(FullModpacks.class, allPacksUrl);
     for (SolderPackInfo info : technic.getModpacks().values()) {
@@ -78,5 +79,11 @@ public class HttpSolderApi implements ISolderApi {
     }
 
     return allPackApis;
+  }
+
+  static String buildPublicPacksUrl(String solderRoot) {
+    // The public pack list deliberately never sends the client ID: it is a discovery request
+    // that no per-pack opt-in can govern
+    return solderRoot + "modpack?include=full";
   }
 }

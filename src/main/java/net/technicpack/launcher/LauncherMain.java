@@ -781,7 +781,7 @@ public class LauncherMain {
         new ImageRepository<>(
             new TechnicAvatarMapper(fileSystem, resources), new WebAvatarImageStore());
 
-    HttpSolderApi httpSolder = new HttpSolderApi(settings.getClientId());
+    HttpSolderApi httpSolder = new HttpSolderApi(slug -> null);
     ISolderApi solder = new CachedSolderApi(fileSystem, httpSolder, 60 * 60);
     HttpPlatformApi httpPlatform =
         new HttpPlatformApi("https://api.technicpack.net/", buildNumber.getBuildNumber());
