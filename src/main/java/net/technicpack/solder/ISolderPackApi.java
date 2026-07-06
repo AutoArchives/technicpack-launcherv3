@@ -32,4 +32,7 @@ public interface ISolderPackApi {
   SolderPackInfo getPackInfo() throws RestfulAPIException;
 
   Modpack getPackBuild(String build) throws BuildInaccessibleException;
+
+  /** Drops any cached pack or build data so the next request hits the Solder server. */
+  default void invalidateCache() {}
 }

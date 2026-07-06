@@ -109,6 +109,16 @@ public class CachedSolderPackApi implements ISolderPackApi {
     }
   }
 
+  @Override
+  public void invalidateCache() {
+    // soldercache.json is left on disk: a successful re-fetch overwrites it, and if the re-fetch
+    // fails it remains a sane fallback for getPackInfoForBulk()
+    rootInfoCache = null;
+    lastInfoAccess = Instant.EPOCH;
+    buildCache.invalidateAll();
+    deadBuildCache.invalidateAll();
+  }
+
   private SolderPackInfo pullAndCache() throws RestfulAPIException {
     try {
       rootInfoCache = innerApi.getPackInfoForBulk();
