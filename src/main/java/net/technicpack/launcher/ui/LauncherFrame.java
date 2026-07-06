@@ -422,7 +422,15 @@ public class LauncherFrame extends DraggableFrame implements IRelocalizableResou
     if (modpackOptionsDialog == null) {
       centralPanel.setTintActive(true);
       footer.setTintActive(true);
-      modpackOptionsDialog = new ModpackOptionsDialog(this, fileSystem, model, resources);
+      modpackOptionsDialog =
+          new ModpackOptionsDialog(
+              this,
+              fileSystem,
+              model,
+              resources,
+              changedModel ->
+                  modpackSelector.onSendClientIdChanged(
+                      changedModel, () -> refreshModpackOptions(changedModel)));
       modpackOptionsDialog.setVisible(true);
       modpackOptionsDialog = null;
       centralPanel.setTintActive(false);

@@ -23,6 +23,7 @@ import net.technicpack.launchercore.exception.BuildInaccessibleException;
 import net.technicpack.rest.RestObject;
 import net.technicpack.rest.RestfulAPIException;
 import net.technicpack.rest.io.Modpack;
+import net.technicpack.solder.ISolderClientIdProvider;
 import net.technicpack.solder.ISolderPackApi;
 import net.technicpack.solder.io.SolderPackInfo;
 import net.technicpack.utilslib.Urls;
@@ -31,10 +32,14 @@ public class HttpSolderPackApi implements ISolderPackApi {
 
   private final String baseUrl;
   private final String modpackSlug;
-  private final String clientId;
+  private final ISolderClientIdProvider clientIdProvider;
   private final String mirrorUrl;
 
-  protected HttpSolderPackApi(String baseUrl, String modpackSlug, String clientId, String mirrorUrl)
+  protected HttpSolderPackApi(
+      String baseUrl,
+      String modpackSlug,
+      ISolderClientIdProvider clientIdProvider,
+      String mirrorUrl)
       throws RestfulAPIException {
     if (modpackSlug == null) {
       throw new RestfulAPIException("The Solder modpack slug is null");
@@ -50,9 +55,10 @@ public class HttpSolderPackApi implements ISolderPackApi {
           String.format("The Solder mirror URL for the modpack \"%s\" is null", modpackSlug));
     }
 
-    if (clientId == null) {
+    if (clientIdProvider == null) {
       throw new RestfulAPIException(
-          String.format("The Solder client ID for the modpack \"%s\" is null", modpackSlug));
+          String.format(
+              "The Solder client ID provider for the modpack \"%s\" is null", modpackSlug));
     }
 
     // Remove the right trailing slash from the base URL so we can format the URLs in a much cleaner
@@ -63,7 +69,7 @@ public class HttpSolderPackApi implements ISolderPackApi {
       this.baseUrl = baseUrl;
     }
     this.modpackSlug = modpackSlug;
-    this.clientId = clientId;
+    this.clientIdProvider = clientIdProvider;
     this.mirrorUrl = mirrorUrl;
   }
 
@@ -79,11 +85,7 @@ public class HttpSolderPackApi implements ISolderPackApi {
 
   @Override
   public SolderPackInfo getPackInfo() throws RestfulAPIException {
-    String packUrl =
-        String.format(
-            "%s/modpack/%s?cid=%s",
-            baseUrl, Urls.pathSegment(modpackSlug), Urls.formParameter(clientId));
-    SolderPackInfo info = RestObject.getRestObject(SolderPackInfo.class, packUrl);
+    SolderPackInfo info = RestObject.getRestObject(SolderPackInfo.class, buildPackInfoUrl());
     info.setSolder(this);
     return info;
   }
@@ -94,18 +96,31 @@ public class HttpSolderPackApi implements ISolderPackApi {
       throw new BuildInaccessibleException(
           modpackSlug, "<null>", new IllegalArgumentException("build name must not be null"));
     }
-    String url =
-        String.format(
-            "%s/modpack/%s/%s?cid=%s",
-            baseUrl,
-            Urls.pathSegment(modpackSlug),
-            Urls.pathSegment(build),
-            Urls.formParameter(clientId));
 
     try {
-      return RestObject.getRestObject(Modpack.class, url);
+      return RestObject.getRestObject(Modpack.class, buildPackBuildUrl(build));
     } catch (RestfulAPIException e) {
       throw new BuildInaccessibleException(modpackSlug, build, e);
     }
+  }
+
+  String buildPackInfoUrl() {
+    String url = String.format("%s/modpack/%s", baseUrl, Urls.pathSegment(modpackSlug));
+    return appendClientId(url);
+  }
+
+  String buildPackBuildUrl(String build) {
+    String url =
+        String.format(
+            "%s/modpack/%s/%s", baseUrl, Urls.pathSegment(modpackSlug), Urls.pathSegment(build));
+    return appendClientId(url);
+  }
+
+  private String appendClientId(String url) {
+    String clientId = clientIdProvider.getClientIdFor(modpackSlug);
+    if (clientId == null) {
+      return url;
+    }
+    return url + "?cid=" + Urls.formParameter(clientId);
   }
 }

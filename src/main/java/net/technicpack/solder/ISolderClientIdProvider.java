@@ -19,20 +19,11 @@
 
 package net.technicpack.solder;
 
-import net.technicpack.launchercore.exception.BuildInaccessibleException;
-import net.technicpack.rest.RestfulAPIException;
-import net.technicpack.rest.io.Modpack;
-import net.technicpack.solder.io.SolderPackInfo;
-
-public interface ISolderPackApi {
-  String getMirrorUrl();
-
-  SolderPackInfo getPackInfoForBulk() throws RestfulAPIException;
-
-  SolderPackInfo getPackInfo() throws RestfulAPIException;
-
-  Modpack getPackBuild(String build) throws BuildInaccessibleException;
-
-  /** Drops any cached pack or build data so the next request hits the Solder server. */
-  default void invalidateCache() {}
+/** Decides, per request, whether the launcher client ID is sent to a Solder server. */
+public interface ISolderClientIdProvider {
+  /**
+   * Returns the client ID to send with Solder requests for the given modpack, or {@code null} to
+   * omit the {@code cid} parameter entirely.
+   */
+  String getClientIdFor(String modpackSlug);
 }

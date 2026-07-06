@@ -28,6 +28,7 @@ public class InstalledPack {
   private String name;
   private String build;
   private String directory;
+  private boolean sendClientId;
 
   public InstalledPack(String name, String build, String directory) {
     this();
@@ -50,6 +51,14 @@ public class InstalledPack {
 
   public void setBuild(String build) {
     this.build = build;
+  }
+
+  public boolean isSendClientId() {
+    return sendClientId;
+  }
+
+  public void setSendClientId(boolean sendClientId) {
+    this.sendClientId = sendClientId;
   }
 
   /**

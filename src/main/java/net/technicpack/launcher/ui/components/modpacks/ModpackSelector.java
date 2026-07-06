@@ -78,6 +78,7 @@ public class ModpackSelector extends TintablePanel
   private final FindMoreWidget findMoreWidget;
   private final transient MemoryModpackContainer defaultPacks = new MemoryModpackContainer();
   private final Map<String, ModpackWidget> allModpacks = new HashMap<>();
+  private final transient Set<String> clientIdPromptShown = new HashSet<>();
   private final Pattern slugRegex;
   private final Pattern siteRegex;
   private transient ResourceLoader resources;
@@ -414,31 +415,15 @@ public class ModpackSelector extends TintablePanel
           @Override
           public void run() {
             try {
-              PlatformPackInfo updatedInfo =
-                  platformApi.getPlatformPackInfo(refreshWidget.getModpack().getName());
-              PackInfo infoToUse = updatedInfo;
-
-              if (updatedInfo != null && updatedInfo.hasSolder()) {
-                try {
-                  ISolderPackApi solderPack =
-                      solderApi.getSolderPack(
-                          updatedInfo.getSolder(),
-                          updatedInfo.getName(),
-                          solderApi.getMirrorUrl(updatedInfo.getSolder()));
-                  infoToUse = new CombinedPackInfo(solderPack.getPackInfo(), updatedInfo);
-                } catch (RestfulAPIException e) {
-                }
-              }
-
-              if (infoToUse != null) {
-                refreshWidget.getModpack().setPackInfo(infoToUse);
-              }
+              updatePackInfoFromNetwork(refreshWidget.getModpack(), false);
 
               SwingUtilities.invokeLater(
                   () -> {
                     if (modpackInfoPanel != null) {
                       modpackInfoPanel.setModpackIfSame(refreshWidget.getModpack());
                     }
+
+                    maybePromptForClientId(refreshWidget);
 
                     if (refreshWidget.getModpack().hasRecommendedUpdate()) {
                       refreshWidget.setToolTipText(
@@ -464,6 +449,113 @@ public class ModpackSelector extends TintablePanel
           }
         };
     thread.start();
+  }
+
+  /**
+   * Re-fetches platform and Solder info for the given modpack and applies it to the model. Runs
+   * network I/O; never call on the EDT.
+   */
+  private void updatePackInfoFromNetwork(ModpackModel modpack, boolean invalidateSolderCache)
+      throws RestfulAPIException {
+    PlatformPackInfo updatedInfo = platformApi.getPlatformPackInfo(modpack.getName());
+    PackInfo infoToUse = updatedInfo;
+
+    if (updatedInfo != null && updatedInfo.hasSolder()) {
+      try {
+        ISolderPackApi solderPack =
+            solderApi.getSolderPack(
+                updatedInfo.getSolder(),
+                updatedInfo.getName(),
+                solderApi.getMirrorUrl(updatedInfo.getSolder()));
+        if (invalidateSolderCache) {
+          solderPack.invalidateCache();
+        }
+        infoToUse = new CombinedPackInfo(solderPack.getPackInfo(), updatedInfo);
+      } catch (RestfulAPIException e) {
+      }
+    }
+
+    if (infoToUse != null) {
+      modpack.setPackInfo(infoToUse);
+    }
+  }
+
+  /**
+   * Called after a modpack's send-client-ID setting changed. Drops the pack's Solder caches,
+   * re-fetches its info with the new setting, then runs {@code onRefreshed} on the EDT.
+   *
+   * <p>Deliberately does not repaint the info panel itself: when this is triggered from the modal
+   * Modpack Options dialog, repainting a child of the tinted central panel would punch a bright
+   * hole in the dimming overlay (the overlay is only redrawn when the panel itself repaints). The
+   * caller decides via {@code onRefreshed} whether a view refresh is safe.
+   */
+  public void onSendClientIdChanged(ModpackModel modpack, Runnable onRefreshed) {
+    Thread thread =
+        new Thread("Client ID refresh " + modpack.getDisplayName()) {
+          @Override
+          public void run() {
+            try {
+              updatePackInfoFromNetwork(modpack, true);
+            } catch (RestfulAPIException e) {
+              e.printStackTrace();
+            }
+
+            if (onRefreshed != null) {
+              SwingUtilities.invokeLater(onRefreshed);
+            }
+          }
+        };
+    thread.start();
+  }
+
+  /**
+   * Suggests enabling the per-pack client ID when a Solder pack reports zero builds — the symptom
+   * of private builds gated on a recognized client ID. Asked at most once per pack per session;
+   * runs on the EDT.
+   */
+  private void maybePromptForClientId(ModpackWidget widget) {
+    // Only prompt for the pack the user is currently looking at
+    if (widget != selectedWidget) {
+      return;
+    }
+
+    ModpackModel modpack = widget.getModpack();
+    PackInfo packInfo = modpack.getPackInfo();
+
+    if (packInfo == null || !packInfo.hasSolder() || modpack.isSendClientId()) {
+      return;
+    }
+
+    List<String> builds = packInfo.getBuilds();
+    if (builds != null && !builds.isEmpty()) {
+      return;
+    }
+
+    String slug = modpack.getName();
+    // add() returns false when already present — covers both "declined" and "already asked"
+    if (slug == null || !clientIdPromptShown.add(slug)) {
+      return;
+    }
+
+    int result =
+        JOptionPane.showConfirmDialog(
+            this,
+            resources.getString("modpackselector.clientid.prompttext"),
+            resources.getString("modpackselector.clientid.prompttitle"),
+            JOptionPane.YES_NO_OPTION,
+            JOptionPane.QUESTION_MESSAGE);
+
+    if (result == JOptionPane.YES_OPTION) {
+      modpack.setSendClientId(true);
+      // No modal is open here, so refreshing the info panel to show revealed builds is safe
+      onSendClientIdChanged(
+          modpack,
+          () -> {
+            if (modpackInfoPanel != null) {
+              modpackInfoPanel.setModpackIfSame(modpack);
+            }
+          });
+    }
   }
 
   protected void rebuildUI() {

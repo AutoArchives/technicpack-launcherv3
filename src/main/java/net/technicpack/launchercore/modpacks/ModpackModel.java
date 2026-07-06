@@ -147,6 +147,23 @@ public class ModpackModel {
     } else return buildName;
   }
 
+  public boolean isSendClientId() {
+    return installedPack != null && installedPack.isSendClientId();
+  }
+
+  public void setSendClientId(boolean sendClientId) {
+    if (installedPack == null) {
+      if (!sendClientId) {
+        return;
+      }
+      // Bookmark a browsed pack: create the entry so the opt-in has somewhere to live
+      installedPack = new InstalledPack(getName(), getBuild());
+    }
+
+    installedPack.setSendClientId(sendClientId);
+    save();
+  }
+
   public List<String> getBuilds() {
     if (packInfo != null && packInfo.getBuilds() != null) return packInfo.getBuilds();
 
